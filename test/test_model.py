@@ -1,7 +1,15 @@
-from src.utils import detect_pose
+from utils import preprocess_image
+import pytest
 
-# Test the pose detection with a sample image
-image_path = "data/raw/images/sample_image.jpg"  # Add test image here
-output_path = "data/processed/pose_output.jpg"
-detect_pose(image_path, output_path)
+# Test preprocess_image
+@pytest.mark.parametrize("image_path, output_path, img_size", [
+    ("test_image.jpg", "output_test.jpg", (256, 192)),
+])
+def test_preprocess_image(image_path, output_path, img_size):
+    try:
+        preprocess_image(image_path, output_path, img_size)
+        assert os.path.exists(output_path)
+    except FileNotFoundError as e:
+        print(e)
+
 
