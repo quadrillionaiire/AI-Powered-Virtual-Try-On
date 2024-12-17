@@ -3,7 +3,12 @@ from model import live_pose_detection
 import os
 import cv2
 import numpy as np
-from src.utils import preprocess_image, plot_images, ensure_directories
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from utils import preprocess_image, plot_images, ensure_directories
+
+
 
 # Constants
 RAW_DATA_PATH = "/Users/quadrillionaiire/Documents/Phase-5-Capstone/AI-Powered-Virtual-Try-On/data/raw/train"

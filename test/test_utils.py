@@ -1,11 +1,29 @@
-from src.utils import plot_images, preprocess_image
 import os
 import pytest
+from src.utils import preprocess_image, ensure_directories
 
-@pytest.mark.parametrize("image_path, output_path, img_size", [
-    ("tests/test_image.jpg", "tests/output_image.jpg", (256, 192)),
-])
-def test_preprocess_image(image_path, output_path, img_size):
-    preprocess_image(image_path, output_path, img_size)
-    assert os.path.exists(output_path)
+@pytest.fixture
+def test_image_paths(tmp_path):
+    # Temporary input and output paths
+    input_path = tmp_path / "test_input.jpg"
+    output_path = tmp_path / "output.jpg"
+    
+    # Create a dummy image
+    import numpy as np
+    import cv2
+    img = np.ones((256, 192, 3), dtype=np.uint8) * 255  # White image
+    cv2.imwrite(str(input_path), img)
+    
+    return input_path, output_path
+
+def test_preprocess_image(test_image_paths):
+    input_path, output_path = test_image_paths
+    
+    preprocess_image(str(input_path), str(output_path), (256, 192))
+    assert os.path.exists(output_path), "Output file was not created."
+
+def test_ensure_directories(tmp_path):
+    os.makedirs(tmp_path, exist_ok=True)
+    ensure_directories()
+    assert os.path.exists(tmp_path), "Directories were not created."
 

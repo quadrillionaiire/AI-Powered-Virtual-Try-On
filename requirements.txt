@@ -1,0 +1,8 @@
+opencv-python
+Pillow
+numpy
+matplotlib
+tqdm
+pandas
+pytest
+streamlit
