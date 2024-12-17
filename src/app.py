@@ -1,33 +1,59 @@
 import streamlit as st
-from utils import preprocess_image, plot_images
-from model import run_mediapipe_on_image
+from model import live_pose_detection
+import os
+import cv2
+import numpy as np
+from src.utils import preprocess_image, plot_images, ensure_directories
 
-st.title("Virtual Try-On with Pose Detection")
+# Constants
+RAW_DATA_PATH = "/Users/quadrillionaiire/Documents/Phase-5-Capstone/AI-Powered-Virtual-Try-On/data/raw/train"
+PROCESSED_DATA_PATH = "/Users/quadrillionaiire/Documents/Phase-5-Capstone/AI-Powered-Virtual-Try-On/data/processed"
+IMG_SIZE = (256, 192)
 
-# File upload widgets
-pose_image_file = st.file_uploader("Upload Pose Image", type=["jpg", "png"])
-clothing_image_file = st.file_uploader("Upload Clothing Image", type=["jpg", "png"])
+# Ensure necessary directories exist
+ensure_directories()
 
-# Overlay clothing
-def overlay_clothing(pose_image_path, clothing_path):
-    pose_image = Image.open(pose_image_path).convert("RGBA")
-    clothing_image = Image.open(clothing_path).convert("RGBA")
+# Streamlit App
+st.title("AI-Powered Virtual Try-On")
 
-    position = st.slider("Adjust Overlay Position", 0, 200, 100), st.slider("Adjust Overlay Vertical", 0, 200, 100)
-    pose_image.paste(clothing_image, position, clothing_image)
-    return pose_image
+# Image Uploads
+st.header("Upload Test Image and Cloth")
+test_image = st.file_uploader("Upload Test Image", type=["jpg", "png"])
+cloth_image = st.file_uploader("Upload Cloth Image", type=["jpg", "png"])
 
-if st.button("Apply Clothing"):
-    if pose_image_file and clothing_image_file:
-        pose_image_path = f"temp_pose_image.{pose_image_file.name.split('.')[-1]}"
-        clothing_image_path = f"temp_clothing_image.{clothing_image_file.name.split('.')[-1]}"
+if test_image and cloth_image:
+    # Save uploaded files
+    test_image_path = os.path.join(PROCESSED_DATA_PATH, "image", test_image.name)
+    cloth_image_path = os.path.join(PROCESSED_DATA_PATH, "cloth", cloth_image.name)
 
-        with open(pose_image_path, "wb") as f:
-            f.write(pose_image_file.read())
-        with open(clothing_image_path, "wb") as f:
-            f.write(clothing_image_file.read())
+    with open(test_image_path, "wb") as f:
+        f.write(test_image.getbuffer())
+    with open(cloth_image_path, "wb") as f:
+        f.write(cloth_image.getbuffer())
 
-        output_image = overlay_clothing(pose_image_path, clothing_image_path)
-        st.image(output_image, caption="Virtual Try-On Result", use_column_width=True)
-    else:
-        st.error("Please upload both a pose image and a clothing image.")
+    st.success("Images uploaded successfully!")
+
+    # Preprocess Images
+    processed_test_path = os.path.join(PROCESSED_DATA_PATH, "image", f"processed_{test_image.name}")
+    processed_cloth_path = os.path.join(PROCESSED_DATA_PATH, "cloth", f"processed_{cloth_image.name}")
+
+    preprocess_image(test_image_path, processed_test_path, IMG_SIZE)
+    preprocess_image(cloth_image_path, processed_cloth_path, IMG_SIZE)
+
+    # Display Images
+    st.subheader("Processed Images")
+    col1, col2 = st.columns(2)
+
+    # Display Test Image
+    test_img = Image.open(processed_test_path)
+    col1.image(test_img, caption="Processed Test Image", use_column_width=True)
+
+    # Display Cloth Image
+    cloth_img = Image.open(processed_cloth_path)
+    col2.image(cloth_img, caption="Processed Cloth Image", use_column_width=True)
+
+    # Visualize Images
+    st.subheader("Visualization")
+    plot_images([processed_test_path, processed_cloth_path], ["Test Image", "Cloth Image"])
+else:
+    st.warning("Please upload both Test Image and Cloth Image.")

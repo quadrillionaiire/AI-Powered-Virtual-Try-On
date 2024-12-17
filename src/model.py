@@ -1,34 +1,59 @@
+import cv2
 import mediapipe as mp
 
-# Initialize MediaPipe
+# Initialize MediaPipe Pose
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose()
+mp_drawing = mp.solutions.drawing_utils
 
-def process_image_pairs(data, image_folder, cloth_folder, processed_folder, img_size):
-    for _, row in tqdm(data.iterrows(), total=len(data), desc="Processing image pairs"):
-        img_path = os.path.join(image_folder, row['image'])
-        cloth_path = os.path.join(cloth_folder, row['cloth'])
+# Live Pose Detection with OpenCV to analyze a live camera feed
 
-        processed_img_path = os.path.join(processed_folder, "image", row['image'])
-        processed_cloth_path = os.path.join(processed_folder, "cloth", row['cloth'])
+def live_pose_detection():
+    cap = cv2.VideoCapture(0)  # Open the webcam
+    with mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5) as pose:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                print("Error: Cannot read the webcam feed.")
+                break
 
-        preprocess_image(img_path, processed_img_path, img_size)
-        preprocess_image(cloth_path, processed_cloth_path, img_size)
+            # Convert frame to RGB
+            image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = pose.process(image_rgb)
 
-def run_mediapipe_on_image(image_path):
-    img = cv2.imread(image_path)
-    if img is None:
-        raise FileNotFoundError(f"Image not found: {image_path}")
+            # Draw pose landmarks on the frame
+            if results.pose_landmarks:
+                mp_drawing.draw_landmarks(
+                    frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS
+                )
 
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    results = pose.process(img_rgb)
+            cv2.imshow("Pose Detection", frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to quit
+                break
 
-    annotated_image = img.copy()
-    if results.pose_landmarks:
-        mp.solutions.drawing_utils.draw_landmarks(
-            annotated_image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS
-        )
+    cap.release()
+    cv2.destroyAllWindows()
 
-    plt.imshow(cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB))
-    plt.axis('off')
-    plt.show()
+# Overlay Clothing Images and map clothing images based on detected pose keypoints 
+def overlay_clothing(image, clothing, landmarks, x_offset=0, y_offset=0):
+    """
+    Align clothing on body keypoints detected from pose landmarks.
+    """
+    # Extract landmarks for shoulders (example points: 11, 12)
+    left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+    right_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER]
+
+    # Calculate alignment based on shoulder positions
+    x1, y1 = int(left_shoulder.x * image.shape[1]), int(left_shoulder.y * image.shape[0])
+    x2, y2 = int(right_shoulder.x * image.shape[1]), int(right_shoulder.y * image.shape[0])
+
+    # Resize clothing image to fit between shoulders
+    width = abs(x2 - x1) + 100
+    height = int(width * (clothing.shape[0] / clothing.shape[1]))
+    resized_clothing = cv2.resize(clothing, (width, height))
+
+    # Overlay clothing image
+    x_start = x1 + x_offset
+    y_start = y1 + y_offset
+    image[y_start:y_start+height, x_start:x_start+width] = resized_clothing
+
+    return image
