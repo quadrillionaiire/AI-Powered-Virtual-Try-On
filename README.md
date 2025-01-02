@@ -63,7 +63,7 @@ The goal is to revolutionize the e-commerce experience by addressing the common 
 
 ### Prerequisites
 1. Python 3.8+.
-2. Required libraries: TensorFlow Lite, Mediapipe, OpenCV, Tkinter.
+2. Required libraries: TensorFlow Lite, Mediapipe, OpenCV, Streamlit.
 3. Raspberry Pi 5 with camera module (optional for full functionality).
 
 ### Installation Steps:
