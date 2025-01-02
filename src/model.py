@@ -92,23 +92,23 @@ def overlay_clothing(image, clothing, scaling_factor=1.0, x_offset=0, y_offset=0
     Overlay a clothing image onto a user's photo with pose-based alignment.
 
     Parameters:
-    - image: User's photo.
-    - clothing: Clothing image to overlay.
+    - image: User's photo (numpy array).
+    - clothing: Clothing image (numpy array, with or without alpha channel).
     - scaling_factor: Scale of the clothing overlay.
-    - x_offset: Horizontal offset.
-    - y_offset: Vertical offset.
-    - use_pose_landmarks: Use pose keypoints for alignment.
+    - x_offset: Horizontal offset for clothing placement.
+    - y_offset: Vertical offset for clothing placement.
+    - use_pose_landmarks: Boolean, use pose keypoints for alignment if True.
 
     Returns:
-    - image: Image with clothing overlay.
+    - image: User's photo with clothing overlay applied.
     """
+    # Handle pose-based alignment (optional)
     if use_pose_landmarks:
         with mp_pose.Pose(static_image_mode=True) as pose:
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             results = pose.process(image_rgb)
 
             if results.pose_landmarks:
-                # Use shoulder keypoints for alignment
                 left_shoulder = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER]
                 right_shoulder = results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER]
 
@@ -117,9 +117,15 @@ def overlay_clothing(image, clothing, scaling_factor=1.0, x_offset=0, y_offset=0
                 y_offset = int(left_shoulder.y * image.shape[0])
                 scaling_factor = shoulder_width / clothing.shape[1]
 
+    # Resize the clothing image
     resized_clothing = cv2.resize(
         clothing, None, fx=scaling_factor, fy=scaling_factor, interpolation=cv2.INTER_AREA
     )
+
+    # Ensure the clothing image has an alpha channel
+    if resized_clothing.shape[2] == 3:  # RGB image
+        alpha_channel = np.ones(resized_clothing.shape[:2], dtype=np.uint8) * 255  # Fully opaque
+        resized_clothing = np.dstack((resized_clothing, alpha_channel))
 
     # Overlay position
     x_start = max(0, x_offset)
@@ -127,12 +133,18 @@ def overlay_clothing(image, clothing, scaling_factor=1.0, x_offset=0, y_offset=0
     x_end = min(image.shape[1], x_start + resized_clothing.shape[1])
     y_end = min(image.shape[0], y_start + resized_clothing.shape[0])
 
-    # Overlay clothing
-    alpha_clothing = resized_clothing[:, :, 3] / 255.0  # Extract alpha channel
-    for c in range(3):
+    # Adjust resized_clothing to fit within the target bounds
+    resized_clothing = resized_clothing[:y_end - y_start, :x_end - x_start]
+
+    # Extract alpha channel for blending
+    alpha_clothing = resized_clothing[:, :, 3] / 255.0  # Normalize alpha to [0, 1]
+
+    # Overlay clothing onto the image
+    for c in range(3):  # Iterate over color channels (B, G, R)
         image[y_start:y_end, x_start:x_end, c] = (
-            alpha_clothing * resized_clothing[:y_end - y_start, :x_end - x_start, c] +
+            alpha_clothing * resized_clothing[:, :, c] +
             (1 - alpha_clothing) * image[y_start:y_end, x_start:x_end, c]
         )
 
     return image
+

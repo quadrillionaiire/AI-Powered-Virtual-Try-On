@@ -1,4 +1,8 @@
+import sys
 import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import cv2
 import numpy as np
 import mediapipe as mp
@@ -78,34 +82,70 @@ def align_and_resize_clothing(clothing_img, left_shoulder, right_shoulder):
 
     return resized_clothing, (x_offset, y_offset)
 
-def overlay_clothing(user_img, clothing_img, offset):
+import numpy as np
+import cv2
+
+def overlay_clothing(image, clothing, scaling_factor=1.0, x_offset=0, y_offset=0, use_pose_landmarks=False):
     """
-    Overlay clothing image onto user image at the specified offset.
+    Overlay a clothing image onto a user's photo with pose-based alignment.
 
     Parameters:
-    - user_img: numpy.ndarray (user image)
-    - clothing_img: numpy.ndarray (clothing image with alpha channel)
-    - offset: (x_offset, y_offset) tuple for placement
+    - image: User's photo (numpy array).
+    - clothing: Clothing image (numpy array, with or without alpha channel).
+    - scaling_factor: Scale of the clothing overlay.
+    - x_offset: Horizontal offset for clothing placement.
+    - y_offset: Vertical offset for clothing placement.
+    - use_pose_landmarks: Boolean, use pose keypoints for alignment if True.
 
     Returns:
-    - overlaid_image: numpy.ndarray
+    - image: User's photo with clothing overlay applied.
     """
-    x_offset, y_offset = offset
-    h, w = clothing_img.shape[:2]
+    # Handle pose-based alignment (optional)
+    if use_pose_landmarks:
+        with mp_pose.Pose(static_image_mode=True) as pose:
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            results = pose.process(image_rgb)
 
-    # Ensure the clothing fits within the user image boundaries
-    x_end = min(x_offset + w, user_img.shape[1])
-    y_end = min(y_offset + h, user_img.shape[0])
-    cropped_clothing = clothing_img[:y_end - y_offset, :x_end - x_offset]
+            if results.pose_landmarks:
+                left_shoulder = results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER]
+                right_shoulder = results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER]
+
+                shoulder_width = int(abs(right_shoulder.x - left_shoulder.x) * image.shape[1])
+                x_offset = int(left_shoulder.x * image.shape[1])
+                y_offset = int(left_shoulder.y * image.shape[0])
+                scaling_factor = shoulder_width / clothing.shape[1]
+
+    # Resize the clothing image
+    resized_clothing = cv2.resize(
+        clothing, None, fx=scaling_factor, fy=scaling_factor, interpolation=cv2.INTER_AREA
+    )
+
+    # Ensure the clothing image has an alpha channel
+    if resized_clothing.shape[2] == 3:  # RGB image
+        alpha_channel = np.ones(resized_clothing.shape[:2], dtype=np.uint8) * 255  # Fully opaque
+        resized_clothing = np.dstack((resized_clothing, alpha_channel))
+
+    # Overlay position
+    x_start = max(0, x_offset)
+    y_start = max(0, y_offset)
+    x_end = min(image.shape[1], x_start + resized_clothing.shape[1])
+    y_end = min(image.shape[0], y_start + resized_clothing.shape[0])
+
+    # Adjust resized_clothing to fit within the target bounds
+    resized_clothing = resized_clothing[:y_end - y_start, :x_end - x_start]
 
     # Extract alpha channel for blending
-    alpha_clothing = cropped_clothing[:, :, 3] / 255.0  # Normalize alpha values
-    for c in range(3):  # Apply blending to R, G, B channels
-        user_img[y_offset:y_end, x_offset:x_end, c] = (
-            alpha_clothing * cropped_clothing[:, :, c] +
-            (1 - alpha_clothing) * user_img[y_offset:y_end, x_offset:x_end, c]
+    alpha_clothing = resized_clothing[:, :, 3] / 255.0  # Normalize alpha to [0, 1]
+
+    # Overlay clothing onto the image
+    for c in range(3):  # Iterate over color channels (B, G, R)
+        image[y_start:y_end, x_start:x_end, c] = (
+            alpha_clothing * resized_clothing[:, :, c] +
+            (1 - alpha_clothing) * image[y_start:y_end, x_start:x_end, c]
         )
-    return user_img
+
+    return image
+
 
 def virtual_try_on_with_pose_detection(user_image, clothing_image, output_path):
     """

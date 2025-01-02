@@ -2,6 +2,8 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
+import matplotlib.image as mpimg
 from tqdm import tqdm
 from PIL import Image
 import torch
@@ -37,8 +39,9 @@ def preprocess_image(image_path, output_path, img_size):
     if img is None:
         raise FileNotFoundError(f"Failed to load {image_path}")
 
-    # Resize and normalize the image
-    img_resized = cv2.resize(img, img_size, interpolation=cv2.INTER_AREA)
+    # Convert BGR to RGB to fix color issues
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_resized = cv2.resize(img_rgb, img_size, interpolation=cv2.INTER_AREA)
     cv2.imwrite(output_path, img_resized)
 
 def normalize_image(image):
@@ -150,3 +153,53 @@ def segment_cloth_area(model, cloth_image_path):
     img_rgba = np.array(img.convert("RGBA"))
     img_rgba[:, :, 3] = (mask > 0).astype(np.uint8) * 255
     return img_rgba, mask
+
+# Visualize images
+def visualize_images(image_paths, cloth_paths, output_paths):
+    def update(val):
+        idx = int(slider.val)
+
+        # Ensure proper loading of images
+        img_ori = mpimg.imread(image_paths[idx])
+        cloth = mpimg.imread(cloth_paths[idx])
+        img_new = mpimg.imread(output_paths[idx], format="png")  # Ensure correct format
+
+        # Clear axes to avoid overlaps
+        for ax in axes:
+            ax.clear()
+
+        # Display images with correct channels
+        axes[0].imshow(img_ori)
+        axes[0].axis("off")
+        axes[0].set_title("Original")
+
+        axes[1].imshow(cloth)
+        axes[1].axis("off")
+        axes[1].set_title("Cloth")
+
+        axes[2].imshow(img_new, cmap='gray')  # Use cmap='gray' for consistent grayscale visualization
+        axes[2].axis("off")
+        axes[2].set_title("Generated")
+
+        fig.canvas.draw_idle()  # Redraw canvas after updates
+
+    # Create figure and axes
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    plt.subplots_adjust(bottom=0.2)
+
+    # Add slider for interactivity
+    ax_slider = plt.axes([0.25, 0.05, 0.5, 0.03])
+    slider = Slider(ax_slider, "Image Index", 0, len(image_paths) - 1, valinit=0, valstep=1)
+    slider.on_changed(update)
+
+    update(0)  # Initial visualization
+    plt.show()
+
+# Example usage
+if __name__ == "__main__":
+    ensure_directories()
+    image_paths = [os.path.join(PROCESSED_DATA_PATH, "image", f"image{i}.jpg") for i in range(1, 4)]
+    cloth_paths = [os.path.join(PROCESSED_DATA_PATH, "cloth", f"cloth{i}.jpg") for i in range(1, 4)]
+    output_paths = [os.path.join(PROCESSED_DATA_PATH, "output", f"output{i}.png") for i in range(1, 4)]
+
+    visualize_images(image_paths, cloth_paths, output_paths)

@@ -4,6 +4,9 @@ import os
 # Get the parent directory (AI-Powered-Virtual-Try-On)
 parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
+# Fallback to Agg rendering for matplotlib (prevents OpenGL issues)
+os.environ["MPLBACKEND"] = "Agg"
+
 # Append the parent directory to sys.path
 sys.path.append(parent_directory)
 
@@ -17,7 +20,7 @@ from model import (
     overlay_clothing,
     build_unet
 )
-from utils import preprocess_image, ensure_directories
+from utils import preprocess_image, ensure_directories, visualize_images
 from models.virtual_try_on_model import (
      virtual_try_on_with_pose_detection,
      align_and_resize_clothing,
@@ -125,5 +128,5 @@ if st.button("Run Segmentation Model"):
 # **End of Application**
 st.markdown("""
 ---
-Developed by [Your Name]. AI-Powered Virtual Try-On is a cutting-edge solution to enhance shopping experiences.
+Developed by Jayla Haskins. AI-Powered Virtual Try-On is a cutting-edge solution to enhance shopping experiences.
 """)
