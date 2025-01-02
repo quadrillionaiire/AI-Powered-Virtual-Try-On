@@ -1,6 +1,14 @@
-import streamlit as st
 import sys
 import os
+
+# Get the parent directory (AI-Powered-Virtual-Try-On)
+parent_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+# Append the parent directory to sys.path
+sys.path.append(parent_directory)
+
+
+import streamlit as st
 import cv2
 import numpy as np
 from PIL import Image
@@ -11,12 +19,11 @@ from model import (
 )
 from utils import preprocess_image, ensure_directories
 from models.virtual_try_on_model import (
-    virtual_try_on_with_pose_detection,
-    align_and_resize_clothing,
-    get_pose_keypoints,
-    load_image
-)
-
+     virtual_try_on_with_pose_detection,
+     align_and_resize_clothing,
+     get_pose_keypoints,
+     load_image
+ )
 
 
 

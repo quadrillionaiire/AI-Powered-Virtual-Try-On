@@ -1,6 +1,6 @@
 absl-py==2.1.0
 altair==5.5.0
-appnope @ file:///home/conda/feedstock_root/build_artifacts/appnope_1733332318622/work
+appnope==0.1.2
 asttokens @ file:///home/conda/feedstock_root/build_artifacts/asttokens_1733250440834/work
 attrs==24.2.0
 blinker==1.9.0
